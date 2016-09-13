@@ -1,44 +1,257 @@
 #!/bin/bash
 
-#set -x 
+## set -x 
+
+programName=`basename $0`
 
 trap exit SIGHUP SIGINT SIGTERM
 
 studyName=BrainChange
 
+GETOPT=$( which getopt )
 ROOT=/data/sanFrancisco/$studyName
-DATA=$ROOT/data
-RAW_DATA=$DATA/raw
-PROCESSED_DATA=$DATA/processed
+PROCESSED_DATA=$ROOT/data/processed
 LOG_DIR=$ROOT/log
 SCRIPTS_DIR=${ROOT}/scripts
-SUBJECTS_DIR=$PROCESSED_DATA
 
+. ${SCRIPTS_DIR}/logger_functions.sh
+
+function doZeropad {
+    local subject="$1"
+    # if [[ $subject == "341_A" ]] ; then
+    # 	sup="-S 30"
+    # fi
+    info_message "Zeropadding anat and EPI for subject $subject"
+    if [[ -f ${PROCESSED_DATA}/$subject/anat/${subject}.anat_clp+orig.HEAD ]] ; then
+	if [[ $force -eq 1 ]] || \
+	   [[ ! -f ${PROCESSED_DATA}/$subject/anat/${subject}.anat.zp+orig.HEAD ]]  || \
+	   [[ ${PROCESSED_DATA}/$subject/anat/${subject}.anat_clp+orig.HEAD -nt ${PROCESSED_DATA}/$subject/anat/${subject}.anat.zp+orig.HEAD ]] ; then
+	    ( cd ${PROCESSED_DATA}/$subject/anat/ ; 3dZeropad -I 30 $sup -prefix ${subject}.anat.zp ${subject}.anat_clp+orig.HEAD )
+	fi
+    else
+	if [[ $force -eq 1 ]] || \
+	   [[ ! -f ${PROCESSED_DATA}/$subject/anat/${subject}.anat.zp+orig.HEAD ]] || \
+	   [[ ${PROCESSED_DATA}/$subject/anat/${subject}.anat+orig.HEAD -nt ${PROCESSED_DATA}/$subject/anat/${subject}.anat.zp+orig.HEAD ]]; then 
+	    ( cd ${PROCESSED_DATA}/$subject/anat/ ; 3dZeropad -I 30 $sup -prefix ${subject}.anat.zp ${subject}.anat+orig.HEAD )
+	fi
+    fi
+    if [[ $force -eq 1 ]] || [[ ! -f ${PROCESSED_DATA}/$subject/resting/${subject}.resting.zp+orig.HEAD ]] ; then 
+	( cd ${PROCESSED_DATA}/$subject/resting/ ; 3dZeropad -I 30 $sup -prefix ${subject}.resting.zp ${subject}.resting+orig.HEAD )
+    fi
+}
+
+GETOPT_OPTIONS=$( $GETOPT \
+		      -o "fe:m:o:h:l:h:b:t:nq" \
+		      --longoptions "force,excessiveMotionThresholdFraction:,motionThreshold:,outlierThreshold:,threads:,lowpass:,highpass:,blur:,tcat:,nonlinear,enqueue" \
+		      -n ${programName} -- "$@" )
+exitStatus=$?
+if [ $exitStatus != 0 ] ; then 
+    echo "Error with getopt. Terminating..." >&2 
+    exit $exitStatus
+fi
+
+## 1 = force creation of zero padded files
+force=0
+
+## enqueue the job for execution
+enqueue=0
+
+# Note the quotes around `$GETOPT_OPTIONS': they are essential!
+eval set -- "$GETOPT_OPTIONS"
+while true ; do 
+    case "$1" in
+	-f|--force)
+	    force=1; shift 1;;
+	-e|--excessiveMotionThresholdFraction)
+	    excessiveMotionThresholdFraction=$2; shift 2 ;;	
+	-m|--motionThreshold)
+	    motionThreshold=$2; shift 2 ;;	
+	-o|--outlierThreshold)
+	    outlierThreshold=$2; shift 2 ;;	
+	-h|--threads)
+	    threads=$2; shift 2 ;;	
+	-l|--lp)
+	    lowpass=$2; shift 2 ;;	
+	-h|--hp)
+	    highpass=$2; shift 2 ;;	
+	-b|--blur)
+	    blur=$2; shift 2 ;;	
+	-t|--tcat)
+	    tcat=$2; shift 2 ;;	
+	-n|--nonlinear)
+	    nonlinear=1; shift 1 ;;	
+	-q|--enqueue)
+	    enqueue=1; shift 1 ;;	
+	--) 
+	    shift ; break ;;
+
+	*) 
+	    echo "${programName}: ${1}: invalid option" >&2
+	    exit 2 ;;
+    esac
+done
+
+if [[ $force -eq 1 ]] ; then
+    info_message "Forcing recreation of ZEROPADed files"
+fi
+
+####################################################################################################
+## Check that appropriate values are used to initialize arguments that
+## control analysis if no values were provided on the command line
+
+## The following values are used to exclude subjects based on the
+## number of volumes censored during analysis
+if [[ "x$excessiveMotionThresholdFraction" == "x" ]] ; then
+    excessiveMotionThresholdFraction=0.2
+    excessiveMotionThresholdPercentage=20
+    warn_message "No excessiveMotionThresholdFraction threshold was provided. Defaulting to $excessiveMotionThresholdFraction => ${excessiveMotionThresholdPercentage}%"
+else
+    excessiveMotionThresholdPercentage=$( echo "(($excessiveMotionThresholdFraction*100)+0.5)/1" | bc ) 
+
+    info_message "Using ${excessiveMotionThresholdFraction} as the subject exclusion motion cutoff fraction"
+    info_message "Using ${excessiveMotionThresholdPercentage}% as subject exclusion motion cutoff percentage"
+    info_message "Note that these values are used to exclude subjects based on the number of volumes censored during analysis"
+fi
+
+
+## motionThreshold and outlierThreshold are the values passed to
+## afni_proc.py and are used when deciding to censor a volume or not
+if [[ "x${motionThreshold}" == "x" ]] ; then
+    motionThreshold=0.2
+    warn_message "No motionThreshold value was provided. Defaulting to $motionThreshold"
+else
+    info_message "Using motionThreshold of ${motionThreshold}"
+fi
+
+if [[ "x${outlierThreshold}" == "x" ]] ; then
+     outlierThreshold=0.1
+     warn_message "No outlierThreshold value was provided. Defaulting to $outlierThreshold"
+else
+    info_message "Using outlierThreshold of ${outlierThreshold}"
+fi
+
+if [[ "x${threads}" == "x" ]] ; then
+     threads=1
+     warn_message "No value for the number of parallel threads to use was provided. Defaulting to $threads"
+else
+    info_message "Using threads value of ${threads}"
+fi
+
+if [[ "x${lowpass}" == "x" ]] ; then
+     lowpass="0.01"
+     warn_message "No value for lowpass filter value to use was provided. Defaulting to $lowpass"
+else
+    info_message "Using lowpass filter value of ${lowpass}"
+fi
+
+if [[ "x${highpass}" == "x" ]] ; then
+     highpass="0.1"
+     warn_message "No value for highpass filter value to use was provided. Defaulting to $highpass"
+else
+    info_message "Using highpass filter value of ${highpass}"
+fi
+
+if [[ "x${blur}" == "x" ]] ; then
+     blur="7"
+     warn_message "No value for blur filter value to use was provided. Defaulting to $blur"
+else
+    info_message "Using blur filter value of ${blur}"
+fi
+
+if [[ "x${tcat}" == "x" ]] ; then
+     tcat="3"
+     warn_message "No value for tcat, the number of TRs to censor from the start of each volume, was provided. Defaulting to $tcat"
+else
+    info_message "Using tcat filter value of ${tcat}"
+fi
+
+if [[ $nonlinear -eq 1 ]] ; then 
+    info_message "Using nonlinear alignment"
+    scriptExt="fs.noanaticor.NL"
+else 
+    info_message "Using affine alignment only"
+    scriptExt="fs.noanaticor.aff"    
+fi
+
+####################################################################################################
 if [[ "$#" -gt 0 ]] ; then
     subjects="$@"
 else
-    subjects=$( cd $RAW_DATA ; ls -1d b* )
+    subjects=$( cd ${PROCESSED_DATA} ; ls -1d b* )
 fi
-
 [[ -d run ]] || mkdir run
 
 for subject in $subjects ; do
-    echo "####################################################################################################"
-    echo "*** Generating script for subject $subject"
+    info_message "#################################################################################################"
+    info_message "Generating script for subject $subject"
 
-    if  [[ ! -f ${SUBJECTS_DIR}/$subject/resting/$subject.resting+orig.HEAD ]] && \
-	[[ ! -f ${SUBJECTS_DIR}/$subject/resting/$subject.resting+orig.BRIK.gz ]]  ; then
+    ## here we set up the default anatomy and resting state files to
+    ## use. They can then be customized for each subject below in teh
+    ## case statement depending on what aea options provide the best
+    ## initial affine alignment between T1 and EPI
+    
+    if  [[ ! -f ${PROCESSED_DATA}/$subject/resting/${subject}.resting+orig.HEAD ]] && \
+	[[ ! -f ${PROCESSED_DATA}/$subject/resting/${subject}.resting+orig.BRIK.gz ]]  ; then
 
-	echo "*** Can not find resting state EPI file for ${subject}. Skipping."
+	warn_message "Can not find resting state EPI file for ${subject}. Skipping."
 	continue
+    else
+	epiFile=${PROCESSED_DATA}/$subject/resting/${subject}.resting+orig.HEAD
     fi
 
-    if  [[ ! -f ${SUBJECTS_DIR}/$subject/mri/aparc.a2009s+aseg.mgz ]] ; then
+    if  [[ ! -f ${PROCESSED_DATA}/$subject/anat/${subject}.anat+orig.HEAD ]] && \
+	[[ ! -f ${PROCESSED_DATA}/$subject/anat/${subject}.anat+orig.BRIK.gz ]]  ; then
+
+	warn_message "Can not find anatomy file for subject ${subject}. Skipping."
+	continue
+    else
+	anatFile=${PROCESSED_DATA}/$subject/anat/$subject.anat+orig.HEAD
+    fi
+
+    if  [[ ! -f $PROCESSED_DATA/freesurfer/$subject/mri/aparc.a2009s+aseg.mgz ]] ; then
 	echo "*** Can not find completely processed FreeSurfer data. Skipping subject ${subject}"
 	continue
     fi
+    
+    outputScriptName=run/run-afniRsfcPreproc-${subject}.${scriptExt}.sh	
+    
+    case $subject in
+	####################################################################################################
+    	subjectID)
+    	    doZeropad $subject
+    	    anatFile=${PROCESSED_DATA}/$subject/$subject.anat.zp+orig.HEAD
+    	    epiFile=${PROCESSED_DATA}/$subject/${subject}.resting.zp+orig.HEAD
+    	    extraAlignmentArgs="-align_opts_aea  -cost lpc+ZZ -giant_move"
+    	    ;;
+	*)
+    	    extraAlignmentArgs=""
+    	    ;;
+    esac
 
-    outputScriptName=run/run-rsfrcPreproc-${subject}.sh
+    ## do non-linear warping? If so add the flag to the extra
+    ## alignment args variable
+    if [[ $nonlinear -eq 1 ]] ; then 
+	extraAlignmentArgs="${extraAlignmentArgs} -tlrc_NL_warp"
+
+	##
+	## the following code is useful if you want to try to use a
+	## preexisting nonlinear warped anatomy
+	##
+	# anat_base=$( basename $anatFile )
+	# anat_base=${anat_base%%+*}
+	# if [[ -f ${PROCESSED_DATA}/${subject}/afniRsfcPreprocessed.NL/${anat_base}_al_keep+tlrc.HEAD ]] && \
+	#    [[ -f ${PROCESSED_DATA}/${subject}/afniRsfcPreprocessed.NL/anat.un.aff.Xat.1D ]] && \
+	#    [[ -f ${PROCESSED_DATA}/${subject}/afniRsfcPreprocessed.NL/anat.un.aff.qw_WARP.nii ]] ; then
+	#     info_message "Supplying prexisting nonlinear warped anatomy to afni_proc.py"
+	#     extraAlignmentArgs="${extraAlignmentArgs} \\
+	#      -tlrc_NL_warped_dsets ${PROCESSED_DATA}/${subject}/afniRsfcPreprocessed.NL/${anat_base}_al_keep+tlrc.HEAD \\
+        #                            ${PROCESSED_DATA}/${subject}/afniRsfcPreprocessed.NL/anat.un.aff.Xat.1D \\
+        #                            ${PROCESSED_DATA}/${subject}/afniRsfcPreprocessed.NL/anat.un.aff.qw_WARP.nii"
+	# fi
+    fi
+
+    info_message "Writing script: $outputScriptName"
+
 
     cat <<EOF > $outputScriptName
 #!/bin/bash
@@ -47,82 +260,115 @@ set -x
 
 #$ -S /bin/bash
 
+## disable compression of BRIKs/nii files
+## unset AFNI_COMPRESSOR
+
 export PYTHONPATH=$AFNI_R_DIR
 
 ## use the newer faster despiking method. comment this out to get the
 ## old one back
 export AFNI_3dDespike_NEW=YES
 
+# turn off anoying colorization of info/warn/error messages since they
+# only result in gobbledygook
+export AFNI_MESSAGE_COLORIZE=NO
+
 ## only use a single thread since we're going to run so many subjects
 ## in parallel
-export OMP_NUM_THREADS=1
+export OMP_NUM_THREADS=${threads}
+
+excessiveMotionThresholdFraction=$excessiveMotionThresholdFraction
+excessiveMotionThresholdPercentage=$excessiveMotionThresholdPercentage
+
+export FREESURFER_SUBJECTS_DIR=$PROCESSED_DATA/freesurfer
+
+cd \$FREESURFER_SUBJECTS_DIR/$subject
+
+if [[ ! -f SUMA/aparc+aseg.nii ]] ; then 
+	# import to AFNI, in NIFTI format
+	@SUMA_Make_Spec_FS -sid $subject -NIFTI
+
+	( cd SUMA; 3dcalc -a aparc+aseg.nii -datum byte -prefix ${subject}.vent.nii  -expr 'amongst(a,4,43)' )
+	( cd SUMA; 3dcalc -a aparc+aseg.nii -datum byte -prefix ${subject}.white.nii -expr 'amongst(a,2,7,16,41,46,251,252,253,254,255)' )
+fi
 
 export SUBJECTS_DIR=$PROCESSED_DATA
 
-cd $SUBJECTS_DIR/$subject
+cd \$SUBJECTS_DIR/$subject 
 
-# import to AFNI, in NIFTI format
-@SUMA_Make_Spec_FS -sid $subject -NIFTI
-
-( cd SUMA; 3dcalc -a aparc+aseg.nii -datum byte -prefix ${subject}.vent.nii  -expr 'amongst(a,4,43)' )
-( cd SUMA; 3dcalc -a aparc+aseg.nii -datum byte -prefix ${subject}.white.nii -expr 'amongst(a,2,7,16,41,46,251,252,253,254,255)' )
-
-preprocessingScript=${subject}.rsfcPreprocess.csh
+preprocessingScript=${subject}.afniRsfcPreprocess.$scriptExt.csh
 rm -f \${preprocessingScript}
 
-outputDir=rsfcPreprocessed
+outputDir=afniRsfcPreprocessed.$scriptExt
+rm -fr \${outputDir}
 
-afni_proc.py -subj_id ${subject}						\\
-             -script \${preprocessingScript}					\\
-	     -out_dir \${outputDir} 						\\
-             -blocks despike tshift align tlrc volreg blur mask regress		\\
-             -copy_anat SUMA/${subject}_SurfVol.nii				\\
-             -anat_follower_ROI aaseg  anat SUMA/aparc.a2009s+aseg_rank.nii	\\
-             -anat_follower_ROI aeseg  epi  SUMA/aparc.a2009s+aseg_rank.nii	\\
-             -anat_follower_ROI FSvent epi  SUMA/${subject}.vent.nii.gz		\\
-             -anat_follower_ROI FSWe   epi  SUMA/${subject}.white.nii.gz	\\
-             -anat_follower_erode FSvent FSWe					\\
-             -dsets resting/${subject}.resting+orig.HEAD			\\
-             -tcat_remove_first_trs 2						\\
-             -tlrc_base MNI_caez_N27+tlrc					\\
-             -tlrc_NL_warp							\\
-             -volreg_align_to MIN_OUTLIER					\\
-             -volreg_align_e2a							\\
-             -volreg_tlrc_warp							\\
-             -regress_ROI_PC FSvent 3						\\
-             -regress_ROI FSWe							\\
-             -regress_make_corr_vols aeseg FSvent				\\
-             -regress_anaticor_fast						\\
-             -regress_anaticor_label FSWe					\\
-             -regress_censor_motion 0.2						\\
-             -regress_censor_outliers 0.1					\\
-             -regress_apply_mot_types demean deriv				\\
-             -regress_est_blur_errts						\\
-             -regress_run_clustsim no
+motionThreshold=${motionThreshold}
+outlierThreshold=${outlierThreshold}
+
+##	     -tcat_remove_first_trs ${tcat}					\\
+## -tlrc_opts_at -init_xform AUTO_CENTER \\
+## 	     -regress_censor_outliers \$outlierThreshold                 	\\
+
+afni_proc.py -subj_id ${subject}										\\
+             -script \${preprocessingScript}									\\
+	     -out_dir \${outputDir}										\\
+	     -blocks despike tshift align tlrc volreg mask blur regress						\\
+             -copy_anat \$FREESURFER_SUBJECTS_DIR/$subject/SUMA/${subject}_SurfVol.nii				\\
+             -anat_follower_ROI aaseg  anat \$FREESURFER_SUBJECTS_DIR/$subject/SUMA/aparc.a2009s+aseg_rank.nii	\\
+             -anat_follower_ROI aeseg  epi  \$FREESURFER_SUBJECTS_DIR/$subject/SUMA/aparc.a2009s+aseg_rank.nii	\\
+             -anat_follower_ROI FSvent epi  \$FREESURFER_SUBJECTS_DIR/$subject/SUMA/${subject}.vent.nii.gz	\\
+             -anat_follower_ROI FSWe   epi  \$FREESURFER_SUBJECTS_DIR/$subject/SUMA/${subject}.white.nii.gz	\\
+             -anat_follower_erode FSvent FSWe									\\
+	     -dsets $epiFile											\\
+	     -tlrc_base MNI_caez_N27+tlrc									\\
+	     -volreg_align_to first										\\
+	     -volreg_tlrc_warp ${extraAlignmentArgs}								\\
+	     -blur_size ${blur}											\\
+	     -blur_to_fwhm											\\
+	     -blur_opts_B2FW "-ACF -rate 0.2 -temper"								\\
+	     -mask_apply group											\\
+	     -mask_segment_anat yes										\\
+	     -regress_censor_first_trs ${tcat}									\\
+	     -mask_segment_erode yes										\\
+             -regress_ROI_PC FSvent 3										\\
+             -regress_ROI_PC FSWe 3										\\
+	     -regress_bandpass ${lowpass} ${highpass}								\\
+	     -regress_apply_mot_types demean									\\
+             -regress_censor_motion \$motionThreshold								\\
+	     -regress_run_clustsim no										\\
+	     -regress_est_blur_epits                                                                            \\
+	     -regress_est_blur_errts
 
 if [[ -f \${preprocessingScript} ]] ; then 
-    tcsh -xef \${preprocessingScript}
+   tcsh -xef \${preprocessingScript}
 
     cd \${outputDir}
-    motionFile=censor_${subject}_combined_2.1D
+    xmat_regress=X.xmat.1D 
 
-    if [[ -f \$motionFile ]] ; then 
+    if [[ -f \$xmat_regress ]] ; then 
 
-	motionThresholdPrecentage=0.2
-	threshold=20
-	numberOfCensoredVolumes=\$( cat \$motionFile | gawk '{a+=(1-\$0)}END{print a}' )
-	totalNumberOfVolumes=\$( cat \$motionFile | wc -l )
-	cutoff=\$( echo "scale=0; \$motionThresholdPrecentage*\$totalNumberOfVolumes" | bc | cut -f 1 -d '.' )
+        fractionOfCensoredVolumes=\$( 1d_tool.py -infile \$xmat_regress -show_tr_run_counts frac_cen )
+        numberOfCensoredVolumes=\$( 1d_tool.py -infile \$xmat_regress -show_tr_run_counts trs_cen )
+        totalNumberOfVolumes=\$( 1d_tool.py -infile \$xmat_regress -show_tr_run_counts trs_no_cen )
 
+        ## rounding method from http://www.alecjacobson.com/weblog/?p=256
+        cutoff=\$( echo "((\$excessiveMotionThresholdFraction*\$totalNumberOfVolumes)+0.5)/1" | bc )
 	if [[ \$numberOfCensoredVolumes -gt \$cutoff ]] ; then 
-	    echo "*** A total of \$numberOfCensoredVolumes of \$totalNumberOfVolumes we censored which is greater than \$threshold % (n=\$cutoff) of all total volumes of this subject" > 00_DO_NOT_ANALYSE_${subject}_\${threshold}percent.txt
-	    echo "*** WARNING: $subject will not be analysed due to having more than \$threshold % of their volumes censored."
+
+	    echo "*** A total of \$numberOfCensoredVolumes of
+	    \$totalNumberOfVolumes volumes were censored which is
+	    greater than \$excessiveMotionThresholdFraction
+	    (n=\$cutoff) of all total volumes of this subject" > \\
+		00_DO_NOT_ANALYSE_${subject}_\${excessiveMotionThresholdPercentage}percent.txt
+
+	    echo "*** WARNING: $subject will not be analysed due to having more than \${excessiveMotionThresholdPercentage}% of their volumes censored."
 	fi
 
-        #trs=\$( 1d_tool.py -infile X.xmat.1D -show_trs_uncensored encoded -show_trs_run 01 )
-        #3dFWHMx -ACF -detrend -mask full_mask.$subject+tlrc errts.$subject.fanaticor+tlrc"[$trs]" >> blur.errts.acf.1D
-
-    fi 
+    else
+	touch 00_DO_NOT_ANALYSE_${subject}_\${excessiveMotionThresholdPercentage}percent.txt
+    fi
+    echo "Compressing BRIKs and nii files"
+    find ./ \( -name "*.BRIK" -o -name "*.nii" \) -print0 | xargs -0 gzip
 else
     echo "*** No such file \${preprocessingScript}"
     echo "*** Cannot continue"
@@ -132,19 +378,19 @@ fi
 EOF
 
     chmod +x $outputScriptName
-    rm -f ../log/$subject-rsfc-preproc.log
-    qsub -N rsfc-$subject -q all.q -j y -m n -V -wd $( pwd )  -o ../log/$subject-rsfc-preproc.log $outputScriptName
+    if [[ $enqueue -eq 1 ]] ; then
+	info_message "Submitting job for execution to queuing system"
+	LOG_FILE=${PROCESSED_DATA}/$subject/$subject-rsfc-afniPreproc.${scriptExt}.log
+	info_message "To see progress run: tail -f $LOG_FILE"
+	rm -f ${LOG_FILE}
+	qsub -N rsfc-$subject -q all.q -j y -m n -V -wd $( pwd )  -o ${LOG_FILE} $outputScriptName
+    else
+	info_message "Job *NOT* submitted for execution to queuing system"
+	info_message "Pass -q or --enqueue options to this script to do so"	
+    fi
 
 done
 
-qstat
-
-# freeview -v \
-# mri/T1.mgz \
-# mri/wm.mgz \
-# mri/brainmask.mgz \
-# mri/aparc.a2009s+aseg.mgz:colormap=lut:opacity=0.2 \
-# -f surf/lh.white:edgecolor=blue \
-# surf/lh.pial:edgecolor=red \
-# surf/rh.white:edgecolor=blue \
-# surf/rh.pial:edgecolor=red
+if [[ $enqueue -eq 1 ]] ; then 
+    qstat
+fi
