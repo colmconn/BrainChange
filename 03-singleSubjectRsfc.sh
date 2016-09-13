@@ -31,6 +31,8 @@ while true ; do
 	    subjectNumber=$2; shift 2 ;;
 	-l|--seedlist)
 	    seedList=$2; shift 2 ;;
+	-d|--directory)
+	    directory=$2; shift 2 ;;
 	--) 
 	    shift ; break ;;
 
@@ -42,6 +44,11 @@ done
 
 if [ -z $subjectNumber ] ; then 
     echo "*** ERROR: The subject ID was not provided. Exiting"
+    exit
+fi
+
+if [ -z $directory ] ; then 
+    echo "*** ERROR: The directory into which to save the RSFC results was not provided. Exiting"
     exit
 fi
 
@@ -62,8 +69,8 @@ fi
 echo "*** Computing RSFC for the following seeds:"
 echo $seeds
 
-[[ ! -d $PROCESSED_DATA/$subjectNumber/rsfc ]] && mkdir $PROCESSED_DATA/$subjectNumber/rsfc
-cd $PROCESSED_DATA/$subjectNumber/rsfc
+[[ ! -d $PROCESSED_DATA/$subjectNumber/$directory ]] && mkdir $PROCESSED_DATA/$subjectNumber/$directory
+cd $PROCESSED_DATA/$subjectNumber/$directory
 
 for seed in $seeds ; do
 
@@ -77,10 +84,10 @@ for seed in $seeds ; do
     mkdir ${seedName}
 
     echo "*** Extracting timeseries for seed ${seed}"
-    3dROIstats -quiet -mask_f2short -mask ${seed} ${preprocessedRsfcDir}/errts.${subjectNumber}.anaticor+tlrc.HEAD > ${seedName}/${seedName}.ts.1D
+    3dROIstats -quiet -mask_f2short -mask ${seed} ${preprocessedRsfcDir}/errts.${subjectNumber}.tproject+tlrc.HEAD > ${seedName}/${seedName}.ts.1D
 
     echo "*** Computing Correlation for seed ${seedName}"
-    3dfim+ -input ${preprocessedRsfcDir}/errts.${subjectNumber}.anaticor+tlrc.HEAD -ideal_file ${seedName}/${seedName}.ts.1D -out Correlation -bucket ${seedName}/${seedName}_corr
+    3dfim+ -input ${preprocessedRsfcDir}/errts.${subjectNumber}.tproject+tlrc.HEAD -ideal_file ${seedName}/${seedName}.ts.1D -out Correlation -bucket ${seedName}/${seedName}_corr
     
     echo "*** Z-transforming correlations for seed ${seedName}"
     3dcalc -datum float -a ${seedName}/${seedName}_corr+tlrc.HEAD -expr 'log((a+1)/(a-1))/2' -prefix ${seedName}/${seedName}.z-score
