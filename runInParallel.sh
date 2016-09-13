@@ -3,32 +3,50 @@
 ## set -x
 
 studyName=BrainChange
-ROOT=/data/sanFrancisco/$studyName
+
+programName=`basename $0`
+
+GETOPT=$( which getopt )
+ROOT=${MDD_ROOT:-/data/sanFrancisco/$studyName}
 DATA=$ROOT/data
 LOG_DIR=$ROOT/log
 SCRIPTS_DIR=${ROOT}/scripts
 
-taskFile=$SCRIPTS_DIR/run/convertDicoms-TaskFile.$BASHPID
+. ${SCRIPTS_DIR}/logger_functions.sh
+
+if [[ $# -gt 0 ]] ; then
+    subjects="$*"
+else
+
+    # subjects="369_A 371_A 373_A 377_A"
+
+    ## subjects="$( cat ../data/config/control.subjectList.txt ../data/config/mdd.nat.txt )"
+    ## subjects=$( cd /data/sanFrancisco ; ls -d [0-9][0-9][0-9]_{A,B,C,D,E} [0-9][0-9][0-9]_{A,B,C,D,E}2 2> /dev/null | grep -v 999 )
+    subjects=$( cd ../data/processed ; ls -d b* )
+    # subjectCount=$( cd ../data; ls -1d *_A2 | wc -l )
+fi
+
+subjectCount=$( echo $subjects | wc -w )
+
+taskName=align-test-brainchange
+taskFile=$SCRIPTS_DIR/run/${taskName}-TaskFile.$BASHPID
+info_message "List of tasks to be executed is stored in $taskFile"
 
 cat /dev/null > $taskFile
 
-for subject in									\
-    bc001a bc002a bc003a bc004b bc005c bc007b bc009a bc013b bc014c		\
-    bc018a bc019a bc020a bc021b bc023b bc024b bc025b bc026b bc030a bc033b	\
-    bc034c bc035c bc037b bc038c bc040b bc001b bc002b bc003b bc004c bc006b	\
-    bc007c bc012b bc013c bc016b bc018b bc019b bc020b bc021c bc023c bc024c	\
-    bc025c bc027a bc030b bc033c bc035a bc036b bc037c bc039b bc040c bc001c	\
-    bc002c bc003c bc005b bc006c bc008a bc012c bc014b bc016c bc018c bc019c	\
-    bc021a bc023a bc024a bc025a bc026a bc029a bc033a bc034a bc035b bc036c	\
-    bc038b bc039c ; do
-    
-    ## echo "$SCRIPTS_DIR/00-convertDicoms.sh -s $subject" >> ${taskFile}
 
-    echo "./03-singleSubjectRsfc.sh -s $subject -l ../data/config/dlpfc.seed.list.txt" >> ${taskFile}
+(( i=1 ))
+for subject in ${subjects} ; do
+    info_message "$( printf "Adding script(s) for subject %s (%03d of %03d) to task file\n" $subject $i $subjectCount )"
+    
+    #echo "$SCRIPTS_DIR/00-convertDicoms.sh -s $subject" >> ${taskFile}
+    echo "$SCRIPTS_DIR/alignment_test.sh $subject" >> ${taskFile}
+    
+    (( i=i+1 ))
 done
 
 ## jobname
-#$ -N convertDicoms
+#$ -N $taskName
 
 ## queue
 #$ -q all.q
@@ -60,7 +78,7 @@ done
 [[ ! -d $LOG_DIR ]] && mkdir $LOG_DIR
 
 nTasks=$( cat $taskFile | wc -l )
-sge_command="qsub -N convertDicoms -q all.q -j y -m n -V -wd $( pwd ) -o $LOG_DIR -t 1-$nTasks" 
+sge_command="qsub -N $taskName -q all.q -j y -m n -V -wd $( pwd ) -o $LOG_DIR -t 1-$nTasks" 
 echo $sge_command
 ( exec $sge_command <<EOF
 #!/bin/sh
