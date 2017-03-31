@@ -127,9 +127,11 @@ echo "*** T1 Anatomy reconstruction"
 
 dicomTask="Sag T1 IRSPGR"
 task="anat"
-if [[ ! -f $dataRoot/${subjectNumber}BRIKS/${subjectNumber}.${task}+orig.HEAD ]] ; then 
+if [[ ! -f $PROCESSED_DATA/${subjectNumber}/$task/${subjectNumber}.${task}+orig.HEAD ]] ; then 
     ## reconstruct "mgz" "$subjectNumber"  "$dicomTask" "$task"
-    reconstruct "afni" "$subjectNumber"  "$dicomTask" "$task"     
+    reconstruct "afni" "$subjectNumber"  "$dicomTask" "$task"
+else
+    echo "*** Found $PROCESSED_DATA/${subjectNumber}/$task/${subjectNumber}.${task}+orig.HEAD. Skipping reconstruction."
 fi
 
 
@@ -138,8 +140,10 @@ echo "*** Resting state reconstruction"
 
 dicomTask="fMRI"
 task="resting"
-if [[ ! -f $dataRoot/${subjectNumber}BRIKS/${subjectNumber}.${task}+orig.HEAD ]] ; then 
+if [[ ! -f $PROCESSED_DATA/${subjectNumber}/$task/${subjectNumber}.${task}+orig.HEAD ]] ; then 
     reconstruct "afni" "$subjectNumber"  "$dicomTask" "$task"
+else
+    echo "*** Found $PROCESSED_DATA/${subjectNumber}/$task/${subjectNumber}.${task}+orig.HEAD. Skipping reconstruction."
 fi
 
 
