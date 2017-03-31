@@ -215,7 +215,8 @@ for subject in $subjects ; do
     fi
 
     ## load file with subject specific alignment options
-    if [[ -f ${SCRIPTS_DIR}/resting_alignment_parameters.sh ]] ; then 
+    if [[ -f ${SCRIPTS_DIR}/resting_alignment_parameters.sh ]] ; then
+	info_message "Loading per subject alignment options from ${SCRIPTS_DIR}/resting_alignment_parameters.sh"
 	. ${SCRIPTS_DIR}/resting_alignment_parameters.sh
     fi
 
@@ -300,6 +301,7 @@ afni_proc.py -subj_id ${subject}						\\
 	     -blur_opts_B2FW "-ACF -rate 0.2 -temper"                           \\
 	     -mask_apply group							\\
 	     -mask_segment_anat yes						\\
+	     -anat_uniform_method unifize                                       \\
 	     -regress_censor_first_trs ${tcat}					\\
 	     -mask_segment_erode yes						\\
 	     -regress_ROI WMe							\\
