@@ -56,13 +56,14 @@ function reconstruct {
 	    (cd $subjectDicomContainerDir; $SCRIPTS_DIR/dcm_check.sh )
 	fi
 	
-	sdirs=( $( cat $subjectDicomContainerDir/dcm_info.txt | grep -i "$dicomTask" | tail -1 | awk '{print $1}' ) )
-	dcmfiles=( $( cat $subjectDicomContainerDir/dcm_info.txt | grep -i "$dicomTask" | tail -1 | awk '{print $2}' ) )
+	series=( $( cat $subjectDicomContainerDir/dcm_info.txt   | grep -P "$dicomTask" | tail -1 | awk '{print $1}' ) )
+	dcmfiles=( $( cat $subjectDicomContainerDir/dcm_info.txt | grep -P "$dicomTask" | tail -1 | awk '{print $2}' ) )
 	(( run=1 ))
 	(( ii=0 ))
-	for sdir in ${sdirs[$ii]} ; do
+	for sdir in ${series[$ii]} ; do
 	    if [[ ${#sdir} -gt 0 ]] && [[ -d  $subjectDicomContainerDir/$sdir ]] ; then 
 
+		echo "*** Task: \"${task}\" --> DICOM Task: \"${dicomTask}\" --> DICOM series directory: \"${sdir}\""
 		dcmFile=${dcmfiles[$ii]}
 		session=$PROCESSED_DATA/${subject}/$task
 		if [[ ! -d $session ]] ; then 
@@ -138,7 +139,8 @@ fi
 echo "****************************************************************************************************"
 echo "*** Resting state reconstruction"
 
-dicomTask="fMRI"
+## dicomTask="fMRI"
+dicomTask='(rs )?fMRI(?! Hariri).*'
 task="resting"
 if [[ ! -f $PROCESSED_DATA/${subjectNumber}/$task/${subjectNumber}.${task}+orig.HEAD ]] ; then 
     reconstruct "afni" "$subjectNumber"  "$dicomTask" "$task"
@@ -146,6 +148,16 @@ else
     echo "*** Found $PROCESSED_DATA/${subjectNumber}/$task/${subjectNumber}.${task}+orig.HEAD. Skipping reconstruction."
 fi
 
+echo "****************************************************************************************************"
+echo "*** Hariri reconstruction"
+
+dicomTask="Hariri"
+task="hariri"
+if [[ ! -f $PROCESSED_DATA/${subjectNumber}/$task/${subjectNumber}.${task}+orig.HEAD ]] ; then 
+    reconstruct "afni" "$subjectNumber"  "$dicomTask" "$task"
+else
+    echo "*** Found $PROCESSED_DATA/${subjectNumber}/$task/${subjectNumber}.${task}+orig.HEAD. Skipping reconstruction."
+fi
 
 # echo "****************************************************************************************************"
 # echo "*** T2 Anatomy reconstruction"
