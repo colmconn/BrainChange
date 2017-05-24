@@ -1,6 +1,6 @@
 #!/bin/bash
 
-## set -x 
+set -x 
 
 # if ctrl-c is typed exit immediatly
 trap kill_afni_then_exit SIGHUP SIGINT SIGTERM
@@ -41,11 +41,11 @@ fi
 
 subjectCount=$( echo $subjects | wc -w )
 
-PIF=AlignmentInspection     #A string identifying programs launched by this script
-                            #Get a free line and tag programs from this script
-NPB="-npb `afni -available_npb_quiet` -pif $PIF -echo_edu" 
+# PIF=AlignmentInspection     #A string identifying programs launched by this script
+#                             #Get a free line and tag programs from this script
+# NPB="-npb `afni -available_npb_quiet` -pif $PIF -echo_edu" 
 
-@Quiet_Talkers -pif $PIF > /dev/null 2>&1   #Quiet previously launched programs
+# @Quiet_Talkers -pif $PIF > /dev/null 2>&1   #Quiet previously launched programs
 
 # afni $NPB -niml -yesplugouts $adir/afni  >& /dev/null &
 
@@ -55,7 +55,7 @@ export AFNI_LAYOUT_FILE=noDefaultLayout
 
 if [[ -f ${SCRIPTS_DIR}/resting_alignment_parameters.sh ]] ; then
     echo "WARNING: moving pre-existing resting_alignment_parameters.sh to resting_alignment_parameters.sh.orig.$BASHPID"
-    mv -f ${SCRIPTS_DIR}/resting_alignment_parameters.sh ${SCRIPTS_DIR}/resting_alignment_parameters.sh.orig.$BASHPID
+    mv -f ${SCRIPTS_DIR}/resting_alignment_parameters.sh ${SCRIPTS_DIR}/resting_alignment_parameters.sh.orig.$$
 fi
 
 echo "Appending the following code to resting_alignment_parameters.sh"
@@ -80,16 +80,23 @@ for subject in $subjects ; do
     if [[ ! -f $DATA/$subject/anat/${subject}.anat+orig.HEAD ]] || [[ ! -f $DATA/$subject/resting/${subject}.resting+orig.HEAD ]]; then 
 	echo "Can't find both T1 anatomy and EPI resting state file. Skipping subject"
     else
-	cd $DATA/$subject/alignmentTest
+	cd $DATA/$subject/alignmentTest.unif.nozp
 	
-	afni $NPB -noplugins -niml -yesplugouts  2> /dev/null &
-	
-	sleep 10
-	#echo "Press enter for the original anatomy"
-	#read
+	afni -noplugins -niml -YESplugouts \
+	     -dset \
+	     $subject.anat_unif+orig.HEAD  \
+	     $subject.anat_unif{_al,_al_lpc+ZZ,_al_lpa,_al_mi}+orig.HEAD \
+	     vr_base+orig \
+	     &
+
+	snooze=8
+	echo "Sleeping $snooze seconds"
+	sleep $snooze
 	## -com "SWITCH_UNDERLAY $subject.anat.zp+orig.HEAD" \
-	plugout_drive $NPB \
-		      -com "SWITCH_OVERLAY  $subject.resting.tshift.zp+orig.HEAD" \
+
+	
+	plugout_drive  \
+		      -com "SWITCH_OVERLAY  vr_base+orig.HEAD" \
 		      -com "SET_THRESHNEW 0" \
 		      -com 'OPEN_WINDOW A.axialimage geom=400x400+416+430 \
                      opacity=7'                         \
@@ -98,19 +105,19 @@ for subject in $subjects ; do
 		      -com 'OPEN_WINDOW A.sagittalimage geom=400x400+10+430     \
                      opacity=7'                         \
 		      -quit > /dev/null
-
+	echo
 	for metric in _al _al_lpc+ZZ _al_lpa _al_mi ; do
-	    echo    "Loading anatomy aligned with ${metric}."
-	    echo -n "Press enter to continue to the next metric of enter q to skip remaining metrics: "
-	    plugout_drive $NPB \
-			  -com "SWITCH_UNDERLAY $subject.anat.zp${metric}+orig.HEAD" \
+	    echo    "Switching anatomy underlay to $subject.anat_unif${metric}+orig.HEAD"
+
+	    plugout_drive  \
+			  -com "SWITCH_UNDERLAY $subject.anat_unif${metric}+orig.HEAD" \
 			  -quit > /dev/null
+
+	    echo -n "Press enter to continue to the next metric of enter s to skip remaining metrics: "
 	    read choice
+	    choice=$( echo "$choice" | tr "[:upper:]" "[:lower:]" )
 	    case $choice in
-		q*)
-		    break
-		    ;;
-		Q*)
+		s*)
 		    break
 		    ;;
 		*)
@@ -128,12 +135,9 @@ for subject in $subjects ; do
 	    echo "	Q or q to quit"	  
 	    echo -n "Enter choice: "
 	    read choice
+	    choice=$( echo "$choice" | tr "[:upper:]" "[:lower:]" )
 	    case $choice in
 		s*)
-		    bestMetric="skip"
-		    break
-		    ;;
-		S*)
 		    bestMetric="skip"
 		    break
 		    ;;
@@ -153,10 +157,6 @@ for subject in $subjects ; do
 		    bestMetric="mi"		  
 		    break
 		    ;;
-		Q*)
-		    kill_afni_then_exit
-		    break
-		    ;;
 		q*)
 		    kill_afni_then_exit
 		    break
@@ -171,18 +171,18 @@ for subject in $subjects ; do
 	    echo "Appending the following code to resting_alignment_parameters.sh"
 	    cat <<EOF | tee -a ${SCRIPTS_DIR}/resting_alignment_parameters.sh
 	$subject)
-	    doZeropad $subject
-	    anatFile=\${DATA}/processed/\${subject}/\${subject}.anat.zp+orig.HEAD
-	    epiFile=\${DATA}/processed/\${subject}/\${subject}.resting.zp+orig.HEAD
-	    extraAlignmentArgs="-align_opts_aea  -cost ${bestMetric} -giant_move"
+	    anatFile=\${DATA}/processed/\${subject}/\${subject}.anat+orig.HEAD
+	    epiFile=\${DATA}/processed/\${subject}/\${subject}.resting+orig.HEAD
+	    extraAlignmentArgs="-align_opts_aea  -cost ${bestMetric}"
 	    ;;
 EOF
 	else
 	    echo "Skipping subject"
 	fi
-	plugout_drive $NPB \
+	plugout_drive \
 		      -com "QUIT" \
 		      -quit > /dev/null
+	killall -9 $( pgrep -f AlignmentInspection ) 
 	echo
     fi
     (( sc=sc + 1 ))
@@ -201,3 +201,9 @@ EOF
 echo "####################################################################################################"
 echo "### All done!"
 echo "####################################################################################################"
+
+	# $subject)
+	#     doZeropad $subject
+	#     anatFile=\${DATA}/processed/\${subject}/\${subject}.anat.zp+orig.HEAD
+	#     epiFile=\${DATA}/processed/\${subject}/\${subject}.resting.zp+orig.HEAD
+	#     extraAlignmentArgs="-align_opts_aea  -cost ${bestMetric} -giant_move"
