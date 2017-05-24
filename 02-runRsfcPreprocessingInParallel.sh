@@ -167,17 +167,17 @@ fi
 
 if [[ $nonlinear -eq 1 ]] ; then 
     info_message "Using nonlinear alignment"
-    scriptExt="noanaticor.NL"
+    scriptExt="NL"
 else 
     info_message "Using affine alignment only"
-    scriptExt="noanaticor.aff"    
+    scriptExt="aff"    
 fi
 
 ####################################################################################################
 if [[ "$#" -gt 0 ]] ; then
     subjects="$@"
 else
-    subjects=$( cd ${PROCESSED_DATA} ; ls -1d b* )
+    subjects=$( cd ${PROCESSED_DATA} ; find ./ -maxdepth 1 -type d -a -name 'bc[0-9][0-9][0-9][abc]' -printf "%f\n" )
 fi
 [[ -d run ]] || mkdir run
 
@@ -336,6 +336,9 @@ if [[ -f \${preprocessingScript} ]] ; then
 
 	    echo "*** WARNING: $subject will not be analysed due to having more than \${excessiveMotionThresholdPercentage}% of their volumes censored."
 	fi
+
+	# make an image to check alignment     
+	$SCRIPTS_DIR/snapshot_volreg.sh anat_final.${subject}+tlrc pb03.${subject}.r01.volreg+tlrc ${subject}.alignment
 
     else
 	touch 00_DO_NOT_ANALYSE_${subject}_\${excessiveMotionThresholdPercentage}percent.txt
