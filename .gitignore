@@ -21,4 +21,13 @@ Thumbs.db
 run/
 rm.*
 3dlme*
-    
+
+## other stuff
+*.csv*
+.#*
+*.orig*
+.xls*
+
+## backup files
+*~
+
