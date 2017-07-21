@@ -177,8 +177,14 @@ fi
 if [[ "$#" -gt 0 ]] ; then
     subjects="$@"
 else
-    subjects=$( cd ${PROCESSED_DATA} ; find ./ -maxdepth 1 -type d -a -name 'bc[0-9][0-9][0-9][abc]' -printf "%f\n" )
+    subjects=$( cd ${PROCESSED_DATA} ; find ./ -maxdepth 1 -type d -a -name 'bc[0-9][0-9][0-9][abc]' -printf "%f\n" | sort )
+
+    # subjects="bc002b bc002c bc006c bc012b bc012c bc013b bc016b bc016c
+    # bc018a bc018b bc019b bc023b bc024b bc026b bc030b bc039b bc040b bc039c
+    # bc040c bc018c bc024c bc034c bc033c bc035c bc034b bc042a bc043a bc044a
+    # bc044c bc047c bc049c bc050c bc053b bc054b bc058b bc051c bc058c"
 fi
+
 [[ -d run ]] || mkdir run
 
 for subject in $subjects ; do
@@ -220,6 +226,8 @@ for subject in $subjects ; do
 	. ${SCRIPTS_DIR}/resting_alignment_parameters.sh
     fi
 
+    extraAlignmentArgs="${extraAlignmentArgs} -align_epi_ext_dset ${epiFile}'[0]'"
+    
     ## do non-linear warping? If so add the flag to the extra
     ## alignment args variable
     if [[ $nonlinear -eq 1 ]] ; then 
@@ -232,13 +240,13 @@ for subject in $subjects ; do
 	# anat_base=$( basename $anatFile )
 	# anat_base=${anat_base%%+*}
 	# if [[ -f ${PROCESSED_DATA}/${subject}/afniRsfcPreprocessed.NL/${anat_base}_al_keep+tlrc.HEAD ]] && \
-	#    [[ -f ${PROCESSED_DATA}/${subject}/afniRsfcPreprocessed.NL/anat.un.aff.Xat.1D ]] && \
-	#    [[ -f ${PROCESSED_DATA}/${subject}/afniRsfcPreprocessed.NL/anat.un.aff.qw_WARP.nii ]] ; then
+	#    [[ -f ${PROCESSED_DATA}/${subject}/afniRsfcPreprocessed.NL/anat.aff.Xat.1D ]] && \
+	#    [[ -f ${PROCESSED_DATA}/${subject}/afniRsfcPreprocessed.NL/anat.aff.qw_WARP.nii.gz ]] ; then
 	#     info_message "Supplying prexisting nonlinear warped anatomy to afni_proc.py"
 	#     extraAlignmentArgs="${extraAlignmentArgs} \\
 	#      -tlrc_NL_warped_dsets ${PROCESSED_DATA}/${subject}/afniRsfcPreprocessed.NL/${anat_base}_al_keep+tlrc.HEAD \\
-        #                            ${PROCESSED_DATA}/${subject}/afniRsfcPreprocessed.NL/anat.un.aff.Xat.1D \\
-        #                            ${PROCESSED_DATA}/${subject}/afniRsfcPreprocessed.NL/anat.un.aff.qw_WARP.nii"
+        #                            ${PROCESSED_DATA}/${subject}/afniRsfcPreprocessed.NL/anat.aff.Xat.1D \\
+        #                            ${PROCESSED_DATA}/${subject}/afniRsfcPreprocessed.NL/anat.aff.qw_WARP.nii.gz"
 	# fi
     fi
 
@@ -284,6 +292,8 @@ motionThreshold=${motionThreshold}
 outlierThreshold=${outlierThreshold}
 
 ##	     -tcat_remove_first_trs ${tcat}					\\
+##	     -regress_censor_first_trs ${tcat}					\\
+
 ## -tlrc_opts_at -init_xform AUTO_CENTER \\
 ## 	     -regress_censor_outliers \$outlierThreshold                 	\\
 
@@ -293,6 +303,7 @@ afni_proc.py -subj_id ${subject}						\\
 	     -blocks despike tshift align tlrc volreg mask blur regress		\\
 	     -copy_anat $anatFile                                               \\
 	     -dsets $epiFile                                                    \\
+	     -tcat_remove_first_trs ${tcat}					\\
 	     -tlrc_base MNI_caez_N27+tlrc					\\
 	     -volreg_align_to first    						\\
 	     -volreg_tlrc_warp ${extraAlignmentArgs}				\\
@@ -302,7 +313,6 @@ afni_proc.py -subj_id ${subject}						\\
 	     -mask_apply group							\\
 	     -mask_segment_anat yes						\\
 	     -anat_uniform_method unifize                                       \\
-	     -regress_censor_first_trs ${tcat}					\\
 	     -mask_segment_erode yes						\\
 	     -regress_ROI WMe							\\
 	     -regress_bandpass ${lowpass} ${highpass}				\\
@@ -337,9 +347,14 @@ if [[ -f \${preprocessingScript} ]] ; then
 	    echo "*** WARNING: $subject will not be analysed due to having more than \${excessiveMotionThresholdPercentage}% of their volumes censored."
 	fi
 
-	# make an image to check alignment     
-	$SCRIPTS_DIR/snapshot_volreg.sh anat_final.${subject}+tlrc pb03.${subject}.r01.volreg+tlrc ${subject}.alignment
+	# make an image to check alignment
+	if [[ -f ext_align_epi+orig.HEAD ] ; then 
+		$SCRIPTS_DIR/snapshot_volreg.sh  ${subject}.anat_unif_al_keep+orig  ext_align_epi+orig.HEAD          ${subject}.orig.alignment
+	else
+		$SCRIPTS_DIR/snapshot_volreg.sh  ${subject}.anat_unif_al_keep+orig  vr_base+orig.HEAD                ${subject}.orig.alignment
+	fi
 
+	$SCRIPTS_DIR/snapshot_volreg.sh  anat_final.${subject}+tlrc         final_epi_vr_base+tlrc.HEAD      ${subject}.tlrc.alignment
     else
 	touch 00_DO_NOT_ANALYSE_${subject}_\${excessiveMotionThresholdPercentage}percent.txt
     fi
