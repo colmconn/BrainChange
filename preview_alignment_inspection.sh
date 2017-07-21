@@ -1,11 +1,12 @@
 #!/bin/bash
 
-set -x 
+## set -x 
 
 # if ctrl-c is typed exit immediatly
 trap die SIGHUP SIGINT SIGTERM
 
 function  die {
+    osascript -e 'quit app "Preview"'
     exit
 }
 
@@ -35,7 +36,7 @@ alignment_dir=alignmentTest.unif.nozp
 if [[ $# -gt 0 ]] ; then
     subjects="$*"
 else
-    subjects=$( cd ../data/raw ; find ./ -maxdepth 1 -type d -a -name 'bc[0-9][0-9][0-9][abc]' -printf "%f\n" )
+    subjects=$( cd ../data/raw ; gfind ./ -maxdepth 1 -type d -a -name 'bc[0-9][0-9][0-9][abc]' -printf "%f\n" )
 fi
 
 subjectCount=$( echo $subjects | wc -w )
@@ -64,7 +65,7 @@ for subject in $subjects ; do
     if [[ ! -f $PROCESSED_DATA/$subject/anat/${subject}.anat+orig.HEAD ]] || [[ ! -f $PROCESSED_DATA/$subject/${task}/${subject}.${task}+orig.HEAD ]]; then 
 	echo "Can't find both T1 anatomy and EPI ${task} state file. Skipping subject"
     else
-	( cd $PROCESSED_DATA/$subject/${alignment_dir} && open *.jpg )
+	( cd $PROCESSED_DATA/$subject/${alignment_dir} && open *overlay.jpg )
 	echo "*** Sleeping for 2 seconds"
 	sleep 2
 	
