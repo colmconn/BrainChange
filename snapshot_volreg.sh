@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# set -x
+set -x
 
 programName=`basename $0`
 
@@ -97,7 +97,7 @@ fi
 
 if [[ $# -gt 3 ]] ; then
     xdisplay=$4
-    if xdpyinfo -display :$xdisplay > /dev/null 2>&1 ; then
+    if xdpyinfo -display $xdisplay > /dev/null 2>&1 ; then
 	echo "Found X display number $xdisplay"
     else 
 	echo "** ERROR: it doesn't look like Xvfb is running with display $xdisplay"
@@ -182,19 +182,9 @@ cdset=${zpref}.acrop.nii
             -prefix ${zpref}.epiR.nii \
             -1Dparam_apply IDENTITY   \
             -final cubic
-
-# find edges in the EPI
-
-3dedge3 -input ${zpref}.epiR.nii -prefix ${zpref}.epiE.nii
-
-# get the EPI automask and apply it to the edgized EPI
-
-3dAutomask -q -prefix ${zpref}.epiM.nii -clfrac 0.333 -dilate 5 ${zpref}.epiR.nii
-3dcalc -a ${zpref}.epiE.nii -b ${zpref}.epiM.nii -expr 'a*b' -prefix ${zpref}.epiEM.nii
-
 # get the lower and upper thresholds for the edgized EPI
 
-epp=( $( 3dBrickStat -non-zero -percentile 20 60 80 ${zpref}.epiEM.nii ) )
+epp=( $( 3dBrickStat -non-zero -percentile 20 60 80 ${zpref}.epiR.nii ) )
 eth=${epp[1]}
 emx=${epp[3]}
 
@@ -208,23 +198,24 @@ astep=`ccalc -int "cbrt($anatNN)/6.111"`
 
 if [[ $astep < 2 ]] ; then astep = 2; fi
 
+#     -com "SET_FUNC_RANGE $emx"                                  \
+#     -com "SET_THRESHNEW $eth *"                                 \
+
+
 afni -noplugins -no_detach                                       \
      -com "SWITCH_UNDERLAY ${cdset}"                             \
-     -com "SWITCH_OVERLAY ${zpref}.epiEM.nii"                    \
-     -com "SET_DICOM_XYZ ${anatCM[*]}"                                \
-     -com "SET_PBAR_ALL +99 1 Plasma"                            \
-     -com "SET_FUNC_RANGE $emx"                                  \
-     -com "SET_THRESHNEW $eth *"                                 \
+     -com "SWITCH_OVERLAY ${zpref}.epiR.nii"                     \
+     -com "SET_DICOM_XYZ ${anatCM[*]}"                           \
      -com "SEE_OVERLAY +"                                        \
      -com "SET_XHAIRS OFF"                                       \
-     -com "OPEN_WINDOW sagittalimage opacity=6 mont=3x1:$astep"  \
-     -com "OPEN_WINDOW axialimage opacity=6 mont=3x1:$astep"     \
-     -com "OPEN_WINDOW coronalimage opacity=6 mont=3x1:$astep"   \
+     -com "OPEN_WINDOW sagittalimage opacity=7 mont=3x1:$astep"  \
+     -com "OPEN_WINDOW axialimage opacity=7 mont=3x1:$astep"     \
+     -com "OPEN_WINDOW coronalimage opacity=7 mont=3x1:$astep"   \
      -com "SAVE_JPEG sagittalimage ${zpref}.sag.jpg blowup=2"    \
      -com "SAVE_JPEG coronalimage  ${zpref}.cor.jpg blowup=2"    \
      -com "SAVE_JPEG axialimage    ${zpref}.axi.jpg blowup=2"    \
      -com "QUITT"                                                \
-     ${cdset} ${zpref}.epiEM.nii
+     ${cdset} ${zpref}.epiR.nii
 
 # convert the output JPEGs to PNMs for manipulation
 
