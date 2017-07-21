@@ -20,12 +20,13 @@ export OMP_NUM_THREADS=1
 subject="$@"
 
 cd /data/sanFrancisco/${studyName}/data/processed/${subject}
+## nn=2
 
-outputDir=alignmentTest.unif.nozp
-rm -rf alignmentTest.unif.nozp
+outputDir=alignmentTest.unif.nozp$nn
+rm -rf alignmentTest.unif.nozp$nn
 
-mkdir alignmentTest.unif.nozp
-cd alignmentTest.unif.nozp/
+mkdir alignmentTest.unif.nozp$nn
+cd alignmentTest.unif.nozp$nn/
 
 cp ../resting/${subject}.resting+orig.* ./
 if [[ -f ../anat/${subject}.anat_clp+orig.HEAD ]] ; then
@@ -37,6 +38,10 @@ else
     3dUnifize -input ${subject}.anat+orig -prefix ${subject}.anat_unif
     #anatFile=${subject}.anat_unif+orig.HEAD
 fi
+
+
+
+
 ## 1x1x1mm rectangular neighborhood around each voxel to be used in
 ## the median filtering operation. The 1x1x1 should match the
 ## underlying resolution of the input data.
@@ -67,27 +72,33 @@ anatFile=${subject}.anat_unif+orig.HEAD
 ##anatFile=${anatFile%%+*}.zp+orig.HEAD						      
 
 ## 3dTcat -prefix ${subject}.resting.tcat ${subject}.resting+orig.'[3..$]'
+
 3dcopy ${subject}.resting+orig ${subject}.resting.tcat
-3dDespike -NEW -nomask -prefix ${subject}.resting.despike ${subject}.resting.tcat+orig.
-3dTshift -tzero 0 -quintic -prefix ${subject}.resting.tshift ${subject}.resting.despike+orig.
+
+## 3dDespike -NEW -nomask -prefix ${subject}.resting.despike ${subject}.resting.tcat+orig.
+
+
+3dTshift -tzero 0 -quintic -prefix ${subject}.resting.tshift ${subject}.resting.tcat+orig.
 3dbucket -prefix vr_base ${subject}.resting.tshift+orig.HEAD'[0]'
 
-#3dZeropad -I 30 -S 30 -prefix ${subject}.resting.tshift.zp ${subject}.resting.tshift+orig
-#epiFile=${subject}.resting.tshift.zp+orig.HEAD
-#epiFile=${subject}.resting.tshift+orig.HEAD						      
+## 3dZeropad -I 30 -S 30 -prefix ${subject}.resting.tshift.zp ${subject}.resting.tshift+orig
+## epiFile=${subject}.resting.tshift.zp+orig.HEAD
+## epiFile=${subject}.resting.tshift+orig.HEAD						      
+epiFile=vr_base+orig.HEAD
 
 epiFile=vr_base+orig.HEAD
 align_epi_anat.py -anat2epi			\
 		  -anat ${anatFile}		\
 		  -epi ${epiFile}		\
+		  -epi_strip 3dAutomask         \
 		  -epi_base 0			\
 		  -volreg off			\
 		  -tshift off			\
 		  -cost lpc			\
-		  -multi_cost lpa lpc+ZZ mi	\
-		  -AddEdge
+		  -multi_cost lpa lpc+ZZ mi
 
 
 for metric in _al _al_lpc+ZZ _al_lpa _al_mi ; do 
-    $SCRIPTS_DIR/snapshot_volreg.sh ${anatFile%%+*}${metric}+orig.HEAD ${epiFile} ${anatFile%%+*}${metric}.alignment
+    ##     $SCRIPTS_DIR/snapshot_volreg.sh ${anatFile%%+*}${metric}+orig.HEAD ${epiFile} ${anatFile%%+*}${metric}.alignment
+    $SCRIPTS_DIR/snapshot_volreg.sh ${anatFile%%+*}${metric}+orig.HEAD ${epiFile} ${anatFile%%+*}${metric}.overlay    
 done
