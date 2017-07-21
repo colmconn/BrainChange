@@ -16,7 +16,7 @@ SCRIPTS_DIR=${ROOT}/scripts
 SUBJECTS_DIR=$PROCESSED_DATA
 
 GETOPT=$( which getopt )
-GETOPT_OPTIONS=$( $GETOPT  -o "s:l:" --longoptions "subject:,seedlist:" -n ${programName} -- "$@" )
+GETOPT_OPTIONS=$( $GETOPT  -o "s:l:d:" --longoptions "subject:,seedlist:,directory:" -n ${programName} -- "$@" )
 exitStatus=$?
 if [ $exitStatus != 0 ] ; then 
     echo "Error with getopt. Terminating..." >&2 
@@ -59,7 +59,7 @@ else
     seeds=$( eval echo $( cat $seedList ) )
 fi
 
-preprocessedRsfcDir=$PROCESSED_DATA/$subjectNumber/rsfcPreprocessed
+preprocessedRsfcDir=$PROCESSED_DATA/$subjectNumber/afniRsfcPreprocessed.NL
 
 if [[ ! -d $preprocessedRsfcDir ]] ; then
     echo "*** No preprocessed RSFC data for $subjectNumber"
