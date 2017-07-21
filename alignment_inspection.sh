@@ -53,15 +53,15 @@ subjectCount=$( echo $subjects | wc -w )
 
 export AFNI_LAYOUT_FILE=noDefaultLayout
 
-if [[ -f ${SCRIPTS_DIR}/resting_alignment_parameters.sh ]] ; then
-    echo "WARNING: moving pre-existing resting_alignment_parameters.sh to resting_alignment_parameters.sh.orig.$BASHPID"
-    mv -f ${SCRIPTS_DIR}/resting_alignment_parameters.sh ${SCRIPTS_DIR}/resting_alignment_parameters.sh.orig.$$
-fi
+# if [[ -f ${SCRIPTS_DIR}/resting_alignment_parameters.sh ]] ; then
+#     echo "WARNING: moving pre-existing resting_alignment_parameters.sh to resting_alignment_parameters.sh.orig.$BASHPID"
+#     mv -f ${SCRIPTS_DIR}/resting_alignment_parameters.sh ${SCRIPTS_DIR}/resting_alignment_parameters.sh.orig.$$
+# fi
 
-echo "Appending the following code to resting_alignment_parameters.sh"
-cat <<EOF | tee ${SCRIPTS_DIR}/resting_alignment_parameters.sh
-    case \$subject in
-EOF
+# echo "Appending the following code to resting_alignment_parameters.sh"
+# cat <<EOF | tee ${SCRIPTS_DIR}/resting_alignment_parameters.sh
+#     case \$subject in
+# EOF
 
 ## sc = subject count
 (( sc=1 )) 
@@ -82,37 +82,45 @@ for subject in $subjects ; do
     else
 	cd $DATA/$subject/alignmentTest.unif.nozp
 	
-	afni -noplugins -niml -YESplugouts \
-	     -dset \
-	     $subject.anat_unif+orig.HEAD  \
-	     $subject.anat_unif{_al,_al_lpc+ZZ,_al_lpa,_al_mi}+orig.HEAD \
-	     vr_base+orig \
-	     &
+	# afni -noplugins -niml -YESplugouts \
+	#      -dset \
+	#      $subject.anat_unif+orig.HEAD  \
+	#      $subject.anat_unif{_al,_al_lpc+ZZ,_al_lpa,_al_mi}+orig.HEAD \
+	#      vr_base+orig \
+	#      &
 
-	snooze=8
-	echo "Sleeping $snooze seconds"
-	sleep $snooze
+	# snooze=8
+	# echo "Sleeping $snooze seconds"
+	# sleep $snooze
 	## -com "SWITCH_UNDERLAY $subject.anat.zp+orig.HEAD" \
 
+	afni -noplugins -YESplugouts						\
+	     -com "SWITCH_UNDERLAY $subject.anat_unif+orig.HEAD"	     	\
+	     -com "OPEN_WINDOW sagittalimage opacity=6"				\
+	     -com "OPEN_WINDOW axialimage opacity=6"				\
+	     -com "OPEN_WINDOW coronalimage opacity=6"				\
+	     $subject.anat_unif+orig.HEAD					\
+	     $subject.anat_unif{_al,_al_lpc+ZZ,_al_lpa,_al_mi}+orig.HEAD &
 	
-	plugout_drive  \
-		      -com "SWITCH_OVERLAY  vr_base+orig.HEAD" \
-		      -com "SET_THRESHNEW 0" \
-		      -com 'OPEN_WINDOW A.axialimage geom=400x400+416+430 \
-                     opacity=7'                         \
-		      -com 'OPEN_WINDOW A.coronalimage geom=274x413+10+830 \
-                     opacity=7'                         \
-		      -com 'OPEN_WINDOW A.sagittalimage geom=400x400+10+430     \
-                     opacity=7'                         \
-		      -quit > /dev/null
+	# plugout_drive  \
+	# 	      -com "SWITCH_OVERLAY  vr_base+orig.HEAD" \
+	# 	      -com "SET_THRESHNEW 0" \
+	# 	      -com 'OPEN_WINDOW A.axialimage geom=400x400+416+430 \
+        #              opacity=7'                         \
+	# 	      -com 'OPEN_WINDOW A.coronalimage geom=274x413+10+830 \
+        #              opacity=7'                         \
+	# 	      -com 'OPEN_WINDOW A.sagittalimage geom=400x400+10+430     \
+        #              opacity=7'                         \
+	# 	      -quit > /dev/null
 	echo
 	for metric in _al _al_lpc+ZZ _al_lpa _al_mi ; do
 	    echo    "Switching anatomy underlay to $subject.anat_unif${metric}+orig.HEAD"
 
-	    plugout_drive  \
-			  -com "SWITCH_UNDERLAY $subject.anat_unif${metric}+orig.HEAD" \
-			  -quit > /dev/null
-
+	    plugout_drive							\
+		-com "SWITCH_UNDERLAY $subject.anat_unif${metric}+orig.HEAD"	\
+		-com "SEE_OVERLAY +" 						\
+		-quit # > /dev/null
+	    
 	    echo -n "Press enter to continue to the next metric of enter s to skip remaining metrics: "
 	    read choice
 	    choice=$( echo "$choice" | tr "[:upper:]" "[:lower:]" )
@@ -167,34 +175,34 @@ for subject in $subjects ; do
 	    esac
 	done
 
-	if [[ $bestMetric != "skip" ]]  ; then 
-	    echo "Appending the following code to resting_alignment_parameters.sh"
-	    cat <<EOF | tee -a ${SCRIPTS_DIR}/resting_alignment_parameters.sh
-	$subject)
-	    anatFile=\${DATA}/processed/\${subject}/\${subject}.anat+orig.HEAD
-	    epiFile=\${DATA}/processed/\${subject}/\${subject}.resting+orig.HEAD
-	    extraAlignmentArgs="-align_opts_aea  -cost ${bestMetric}"
-	    ;;
-EOF
-	else
-	    echo "Skipping subject"
-	fi
+# 	if [[ $bestMetric != "skip" ]]  ; then 
+# 	    echo "Appending the following code to resting_alignment_parameters.sh"
+# 	    cat <<EOF | tee -a ${SCRIPTS_DIR}/resting_alignment_parameters.sh
+# 	$subject)
+# 	    anatFile=\${DATA}/processed/\${subject}/\${subject}.anat+orig.HEAD
+# 	    epiFile=\${DATA}/processed/\${subject}/\${subject}.resting+orig.HEAD
+# 	    extraAlignmentArgs="-align_opts_aea  -cost ${bestMetric}"
+# 	    ;;
+# EOF
+# 	else
+# 	    echo "Skipping subject"
+# 	fi
 	plugout_drive \
 		      -com "QUIT" \
-		      -quit > /dev/null
-	killall -9 $( pgrep -f AlignmentInspection ) 
+		      -quit #> /dev/null
+	## killall -9 $( pgrep -f AlignmentInspection ) 
 	echo
     fi
     (( sc=sc + 1 ))
 done
 
-echo "Appending the following code to resting_alignment_parameters.sh"
-cat <<EOF | tee -a ${SCRIPTS_DIR}/resting_alignment_parameters.sh
-    	*)
-    	    extraAlignmentArgs=""
-    	    ;;
-    esac
-EOF
+# echo "Appending the following code to resting_alignment_parameters.sh"
+# cat <<EOF | tee -a ${SCRIPTS_DIR}/resting_alignment_parameters.sh
+#     	*)
+#     	    extraAlignmentArgs=""
+#     	    ;;
+#     esac
+# EOF
 
 
 
