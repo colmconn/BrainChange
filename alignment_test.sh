@@ -79,7 +79,9 @@ anatFile=${subject}.anat_unif+orig.HEAD
 
 
 3dTshift -tzero 0 -quintic -prefix ${subject}.resting.tshift ${subject}.resting.tcat+orig.
-3dbucket -prefix vr_base ${subject}.resting.tshift+orig.HEAD'[0]'
+3dbucket -prefix vrbase ${subject}.resting.tshift+orig.HEAD'[0]'
+
+## 3dUnifize -EPI -input first_vol+orig.HEAD -prefix vr_base
 
 ## 3dZeropad -I 30 -S 30 -prefix ${subject}.resting.tshift.zp ${subject}.resting.tshift+orig
 ## epiFile=${subject}.resting.tshift.zp+orig.HEAD
