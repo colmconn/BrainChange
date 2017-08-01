@@ -20,6 +20,7 @@ Thumbs.db
 ## automatically generated scripts
 run/
 ttests/
+old/
 rm.*
 3dlme*
 
