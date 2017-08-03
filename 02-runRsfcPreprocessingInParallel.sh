@@ -21,7 +21,7 @@ function doZeropad {
     # if [[ $subject == "341_A" ]] ; then
     # 	sup="-S 30"
     # fi
-    info_message "Zeropadding anat and EPI for subject $subject"
+    info_message_ln "Zeropadding anat and EPI for subject $subject"
     if [[ -f ${PROCESSED_DATA}/$subject/anat/${subject}.anat_clp+orig.HEAD ]] ; then
 	if [[ $force -eq 1 ]] || \
 	   [[ ! -f ${PROCESSED_DATA}/$subject/anat/${subject}.anat.zp+orig.HEAD ]]  || \
@@ -92,7 +92,7 @@ while true ; do
 done
 
 if [[ $force -eq 1 ]] ; then
-    info_message "Forcing recreation of ZEROPADed files"
+    info_message_ln "Forcing recreation of ZEROPADed files"
 fi
 
 ####################################################################################################
@@ -104,13 +104,13 @@ fi
 if [[ "x$excessiveMotionThresholdFraction" == "x" ]] ; then
     excessiveMotionThresholdFraction=0.2
     excessiveMotionThresholdPercentage=20
-    warn_message "No excessiveMotionThresholdFraction threshold was provided. Defaulting to $excessiveMotionThresholdFraction => ${excessiveMotionThresholdPercentage}%"
+    warn_message_ln "No excessiveMotionThresholdFraction threshold was provided. Defaulting to $excessiveMotionThresholdFraction => ${excessiveMotionThresholdPercentage}%"
 else
     excessiveMotionThresholdPercentage=$( echo "(($excessiveMotionThresholdFraction*100)+0.5)/1" | bc ) 
 
-    info_message "Using ${excessiveMotionThresholdFraction} as the subject exclusion motion cutoff fraction"
-    info_message "Using ${excessiveMotionThresholdPercentage}% as subject exclusion motion cutoff percentage"
-    info_message "Note that these values are used to exclude subjects based on the number of volumes censored during analysis"
+    info_message_ln "Using ${excessiveMotionThresholdFraction} as the subject exclusion motion cutoff fraction"
+    info_message_ln "Using ${excessiveMotionThresholdPercentage}% as subject exclusion motion cutoff percentage"
+    info_message_ln "Note that these values are used to exclude subjects based on the number of volumes censored during analysis"
 fi
 
 
@@ -118,58 +118,58 @@ fi
 ## afni_proc.py and are used when deciding to censor a volume or not
 if [[ "x${motionThreshold}" == "x" ]] ; then
     motionThreshold=0.2
-    warn_message "No motionThreshold value was provided. Defaulting to $motionThreshold"
+    warn_message_ln "No motionThreshold value was provided. Defaulting to $motionThreshold"
 else
-    info_message "Using motionThreshold of ${motionThreshold}"
+    info_message_ln "Using motionThreshold of ${motionThreshold}"
 fi
 
 if [[ "x${outlierThreshold}" == "x" ]] ; then
      outlierThreshold=0.1
-     warn_message "No outlierThreshold value was provided. Defaulting to $outlierThreshold"
+     warn_message_ln "No outlierThreshold value was provided. Defaulting to $outlierThreshold"
 else
-    info_message "Using outlierThreshold of ${outlierThreshold}"
+    info_message_ln "Using outlierThreshold of ${outlierThreshold}"
 fi
 
 if [[ "x${threads}" == "x" ]] ; then
      threads=1
-     warn_message "No value for the number of parallel threads to use was provided. Defaulting to $threads"
+     warn_message_ln "No value for the number of parallel threads to use was provided. Defaulting to $threads"
 else
-    info_message "Using threads value of ${threads}"
+    info_message_ln "Using threads value of ${threads}"
 fi
 
 if [[ "x${lowpass}" == "x" ]] ; then
      lowpass="0.01"
-     warn_message "No value for lowpass filter value to use was provided. Defaulting to $lowpass"
+     warn_message_ln "No value for lowpass filter value to use was provided. Defaulting to $lowpass"
 else
-    info_message "Using lowpass filter value of ${lowpass}"
+    info_message_ln "Using lowpass filter value of ${lowpass}"
 fi
 
 if [[ "x${highpass}" == "x" ]] ; then
      highpass="0.1"
-     warn_message "No value for highpass filter value to use was provided. Defaulting to $highpass"
+     warn_message_ln "No value for highpass filter value to use was provided. Defaulting to $highpass"
 else
-    info_message "Using highpass filter value of ${highpass}"
+    info_message_ln "Using highpass filter value of ${highpass}"
 fi
 
 if [[ "x${blur}" == "x" ]] ; then
      blur="7"
-     warn_message "No value for blur filter value to use was provided. Defaulting to $blur"
+     warn_message_ln "No value for blur filter value to use was provided. Defaulting to $blur"
 else
-    info_message "Using blur filter value of ${blur}"
+    info_message_ln "Using blur filter value of ${blur}"
 fi
 
 if [[ "x${tcat}" == "x" ]] ; then
      tcat="3"
-     warn_message "No value for tcat, the number of TRs to censor from the start of each volume, was provided. Defaulting to $tcat"
+     warn_message_ln "No value for tcat, the number of TRs to censor from the start of each volume, was provided. Defaulting to $tcat"
 else
-    info_message "Using tcat filter value of ${tcat}"
+    info_message_ln "Using tcat filter value of ${tcat}"
 fi
 
 if [[ $nonlinear -eq 1 ]] ; then 
-    info_message "Using nonlinear alignment"
+    info_message_ln "Using nonlinear alignment"
     scriptExt="NL"
 else 
-    info_message "Using affine alignment only"
+    info_message_ln "Using affine alignment only"
     scriptExt="aff"    
 fi
 
@@ -188,8 +188,8 @@ fi
 [[ -d run ]] || mkdir run
 
 for subject in $subjects ; do
-    info_message "#################################################################################################"
-    info_message "Generating script for subject $subject"
+    info_message_ln "#################################################################################################"
+    info_message_ln "Generating script for subject $subject"
 
     ## here we set up the default anatomy and resting state files to
     ## use. They can then be customized for each subject below in teh
@@ -199,7 +199,7 @@ for subject in $subjects ; do
     if  [[ ! -f ${PROCESSED_DATA}/$subject/resting/${subject}.resting+orig.HEAD ]] && \
 	[[ ! -f ${PROCESSED_DATA}/$subject/resting/${subject}.resting+orig.BRIK.gz ]]  ; then
 
-	warn_message "Can not find resting state EPI file for ${subject}. Skipping."
+	warn_message_ln "Can not find resting state EPI file for ${subject}. Skipping."
 	continue
     else
 	epiFile=${PROCESSED_DATA}/$subject/resting/${subject}.resting+orig.HEAD
@@ -208,7 +208,7 @@ for subject in $subjects ; do
     if  [[ ! -f ${PROCESSED_DATA}/$subject/anat/${subject}.anat+orig.HEAD ]] && \
 	[[ ! -f ${PROCESSED_DATA}/$subject/anat/${subject}.anat+orig.BRIK.gz ]]  ; then
 
-	warn_message "Can not find anatomy file for subject ${subject}. Skipping."
+	warn_message_ln "Can not find anatomy file for subject ${subject}. Skipping."
 	continue
     else
 	anatFile=${PROCESSED_DATA}/$subject/anat/$subject.anat+orig.HEAD
@@ -222,10 +222,16 @@ for subject in $subjects ; do
 
     ## load file with subject specific alignment options
     if [[ -f ${SCRIPTS_DIR}/resting_alignment_parameters.sh ]] ; then
-	info_message "Loading per subject alignment options from ${SCRIPTS_DIR}/resting_alignment_parameters.sh"
+	info_message_ln "Loading per subject alignment options from ${SCRIPTS_DIR}/resting_alignment_parameters.sh"
 	. ${SCRIPTS_DIR}/resting_alignment_parameters.sh
     fi
 
+    if [[ -z ${extraAlignmentArgs} ]] ; then
+	extraAlignmentArgs="-align_opts_aea -skullstrip_opts -push_to_edge -no_avoid_eyes"
+    else
+	extraAlignmentArgs="${extraAlignmentArgs} -skullstrip_opts -push_to_edge -no_avoid_eyes"	
+    fi
+    
     extraAlignmentArgs="${extraAlignmentArgs} -align_epi_ext_dset ${epiFile}'[0]'"
     
     ## do non-linear warping? If so add the flag to the extra
@@ -242,7 +248,7 @@ for subject in $subjects ; do
 	# if [[ -f ${PROCESSED_DATA}/${subject}/afniRsfcPreprocessed.NL/${anat_base}_al_keep+tlrc.HEAD ]] && \
 	#    [[ -f ${PROCESSED_DATA}/${subject}/afniRsfcPreprocessed.NL/anat.aff.Xat.1D ]] && \
 	#    [[ -f ${PROCESSED_DATA}/${subject}/afniRsfcPreprocessed.NL/anat.aff.qw_WARP.nii.gz ]] ; then
-	#     info_message "Supplying prexisting nonlinear warped anatomy to afni_proc.py"
+	#     info_message_ln "Supplying prexisting nonlinear warped anatomy to afni_proc.py"
 	#     extraAlignmentArgs="${extraAlignmentArgs} \\
 	#      -tlrc_NL_warped_dsets ${PROCESSED_DATA}/${subject}/afniRsfcPreprocessed.NL/${anat_base}_al_keep+tlrc.HEAD \\
         #                            ${PROCESSED_DATA}/${subject}/afniRsfcPreprocessed.NL/anat.aff.Xat.1D \\
@@ -250,7 +256,7 @@ for subject in $subjects ; do
 	# fi
     fi
 
-    info_message "Writing script: $outputScriptName"
+    info_message_ln "Writing script: $outputScriptName"
 
 
     cat <<EOF > $outputScriptName
@@ -348,7 +354,7 @@ if [[ -f \${preprocessingScript} ]] ; then
 	fi
 
 	# make an image to check alignment
-	if [[ -f ext_align_epi+orig.HEAD ] ; then 
+	if [[ -f ext_align_epi+orig.HEAD ]] ; then 
 		$SCRIPTS_DIR/snapshot_volreg.sh  ${subject}.anat_unif_al_keep+orig  ext_align_epi+orig.HEAD          ${subject}.orig.alignment
 	else
 		$SCRIPTS_DIR/snapshot_volreg.sh  ${subject}.anat_unif_al_keep+orig  vr_base+orig.HEAD                ${subject}.orig.alignment
@@ -370,14 +376,14 @@ EOF
 
     chmod +x $outputScriptName
     if [[ $enqueue -eq 1 ]] ; then
-	info_message "Submitting job for execution to queuing system"
+	info_message_ln "Submitting job for execution to queuing system"
 	LOG_FILE=${PROCESSED_DATA}/$subject/$subject-rsfc-afniPreproc.${scriptExt}.log
-	info_message "To see progress run: tail -f $LOG_FILE"
+	info_message_ln "To see progress run: tail -f $LOG_FILE"
 	rm -f ${LOG_FILE}
 	qsub -N rsfc-$subject -q all.q -j y -m n -V -wd $( pwd )  -o ${LOG_FILE} $outputScriptName
     else
-	info_message "Job *NOT* submitted for execution to queuing system"
-	info_message "Pass -q or --enqueue options to this script to do so"	
+	info_message_ln "Job *NOT* submitted for execution to queuing system"
+	info_message_ln "Pass -q or --enqueue options to this script to do so"	
     fi
 
 done
