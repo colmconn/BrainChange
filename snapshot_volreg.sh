@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -x
+## set -x
 
 programName=`basename $0`
 
