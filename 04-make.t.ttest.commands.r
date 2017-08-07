@@ -389,6 +389,7 @@ make.ttest.command.script <- function(in.mgd, in.timepoint) {
     setB.labels.and.files = paste(apply(in.mgd[in.mgd$timepoint==setB.group, c("Subj", "InputFile")], 1, paste, collapse=" "), collapse=" \\\n")
     
  three.d.ttest.command=sprintf("#!/bin/bash
+export OMP_NUM_THREADS=1
 %s 
 
 %s 
