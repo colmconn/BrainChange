@@ -536,7 +536,7 @@ seeds.filename=opt$seeds
 
 seeds=readSeedsFile(seeds.filename)
 
-subjects.df=(makeSubjectAndTimepointDf())
+subjects.df=makeSubjectAndTimepointDf()
 ## now remove subjects at timepoint a since this will we're
 ## performing a paired t-test so only two timepoitns can be used
 cat("*** Filtering to remove subjects at timepoint 'a'\n")
@@ -548,7 +548,16 @@ cat("*** Removing data from", sum(subjects.df$excessive.motion),"subjects\n")
 subjects.df=subset(subjects.df, excessive.motion==FALSE)
 
 subjects.df.orig=subjects.df
-    
+
+## this is the list of healthy subjects that Olga sent in an emial on
+## Auy 8 2017 (subject: brain change RSFC results)
+healthy.subjects=c("bc001", "bc002", "bc005", "bc006", "bc007", "bc019",
+                "bc024", "bc025", "bc033", "bc034", "bc036", "bc037",
+                "bc038", "bc040", "bc041", "bc042", "bc044", "bc045",
+                "bc046", "bc047", "bc050", "bc051", "bc052", "bc053",
+                "bc054", "bc055", "bc057", "bc058", "bc059")
+include.only.healthy.subjects=TRUE
+
 for (seed in seeds) {
     seedName=getSeedName(seed)
 
@@ -565,6 +574,15 @@ for (seed in seeds) {
     n.table=table(subjects.df[, c("timepoint")])
     n.table=addmargins(n.table)
     print(n.table)
+
+    if (include.only.healthy.subjects) {
+        subjects.df$is.healthy =subjects.df$Subj %in% healthy.subjects
+        subjects.df=subset(subjects.df, subjects.df$is.healthy==TRUE)
+        cat("*** Contingency table of group-by-timepoint counts *AFTER* filtering to include only healthy subjects\n")
+        n.table=table(subjects.df[, c("timepoint")])
+        n.table=addmargins(n.table)
+        print(n.table)
+    }        
 
     ## now filter to ensure that only subjects with data at both time
     ## points is included in the analysis
