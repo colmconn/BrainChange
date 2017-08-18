@@ -224,7 +224,7 @@ for seed in $seeds ; do
     statBrikId=$( 3dinfo -label2index "${labelPrefix}_Zscr" $tTestFile 2> /dev/null )
     contrastBrikId=$( 3dinfo -label2index "${labelPrefix}_mean" $tTestFile 2> /dev/null )    
 
-    nVoxels=$( $SCRIPTS_DIR/get.minimum.voxel.count.r --nn $NN --alpha=$cPvalue --pthr=$pValue --side=$side --csimfile=$GROUP_RESULTS/${csimprefix}.restingstate.${infix}.CSim.NN${NN}_${side}sided.1D )
+    nVoxels=$( $SCRIPTS_DIR/get.minimum.voxel.count.r --nn $NN --alpha=$cPvalue --pthr=$pValue --side=$side --csimfile=$GROUP_RESULTS/${csimprefix}.restingstate.${infix}.CSimA.NN${NN}_${side}sided.1D )
     if [[ "x$nVoxels" == "x" ]] ; then
 	error_message_ln "Couldn't get the correct number of voxels to go with pvalue=$pValue and corrected pvalue=$cPvalue"
 	error_message_ln "You may need to pad these values with zeros to ensure you match the correct row and column in $cstempPrefix.NN${NN}_${side}.1D"
