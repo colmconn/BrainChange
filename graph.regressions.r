@@ -491,9 +491,9 @@ generateGraphs <- function (group.data.dir, group.results.dir, rvVariable, rvNam
 graphRegressions <- function(melted.mgd, group.results.dir, rvVariable, rvName, seedName, in.run.correlations=FALSE) {
 
     ## print(head(melted.mgd))
-    imageDirectory=file.path(group.results.dir, rvVariable)
+    imageDirectory=file.path(group.results.dir, rvVariable, seedName)
     if ( ! file.exists(imageDirectory) ) {
-        dir.create(imageDirectory)
+        dir.create(imageDirectory, recursive=TRUE)
     }
 
     for ( level in levels(melted.mgd$cluster) ) {
@@ -509,7 +509,7 @@ graphRegressions <- function(melted.mgd, group.results.dir, rvVariable, rvName, 
         
         y.axis="value"
         x.axis=rvVariable
-        y.axis.label="RSFC (Z-score)"
+        y.axis.label="Change in RSFC (Z-score)"
         x.axis.label=rvName
         
         graph = ggplot(ss, aes_string(x=x.axis, y=y.axis))
